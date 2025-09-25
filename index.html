@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Caption Generator（キャプション ジェネレーター）</title>
+  <meta name="description" content="トーンを選ぶだけ。短いコピーをサッと量産。A/Bお気に入り保存＆学習もできる、単一HTMLのSPA。" />
+  <style>
+    /* ====== Design System (no external libs) ====== */
+    :root{
+      --bg: #0b0f14;
+      --bg-soft: #111723;
+      --card: #121826;
+      --ink: #e6edf6;
+      --muted: #9fb2c8;
+      --brand-1: #7c8cff; /* indigo */
+      --brand-2: #8eedc7; /* mint */
+      --accent: #ffc857;  /* amber */
+      --danger: #ff6b6b;
+      --ok: #22c55e;
+      --shadow: 0 20px 40px rgba(0,0,0,.35);
+      --radius-xl: 18px;
+      --radius-lg: 14px;
+      --radius-md: 12px;
+      --radius-sm: 10px;
+      --gap: 14px;
+      --trans: 190ms cubic-bezier(.2,.7,.2,1);
+    }
+    html, body{height:100%}
+    body{
+      margin:0;
+      color:var(--ink);
+      background:
+        radial-gradient(1200px 800px at 10% -10%, rgba(124,140,255,.15), transparent 60%),
+        radial-gradient(1000px 700px at 120% 10%, rgba(142,237,199,.12), transparent 50%),
+        linear-gradient(180deg, #0b0f14, #0b0f14 60%);
+      font: 15px/1.6 system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+      letter-spacing:.2px;
+    }
+    .container{max-width:1100px;margin:0 auto;padding:28px}
+
+    header{
+      display:flex;gap:20px;align-items:center;justify-content:space-between;margin-bottom:18px
+    }
+    .brand{
+      display:flex;align-items:center;gap:14px
+    }
+    .logo{width:44px;height:44px;border-radius:12px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+    .logo::before{content:"";position:absolute;inset:0;background:conic-gradient(from 240deg, var(--brand-1), var(--brand-2), var(--accent), var(--brand-1));filter:blur(10px);opacity:.65}
+    .title{font-size:22px;font-weight:700}
+    .subtitle{color:var(--muted);font-size:13px}
+
+    .panel{background:linear-gradient(180deg, rgba(17,23,35,.7), rgba(17,23,35,.4));backdrop-filter:saturate(120%) blur(10px);border:1px solid rgba(124,140,255,.15);border-radius:var(--radius-xl);padding:18px;box-shadow:var(--shadow)}
+    .panel + .panel{margin-top:16px}
+
+    .controls{display:grid;grid-template-columns:1.1fr .9fr .9fr auto;gap:var(--gap);align-items:end}
+    @media (max-width:900px){.controls{grid-template-columns:1fr 1fr;}}
+    @media (max-width:560px){.controls{grid-template-columns:1fr;}}
+
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input[type="text"], select, textarea{
+      width:100%;
+      color:var(--ink);
+      background:var(--card);
+      border:1px solid rgba(124,140,255,.18);
+      border-radius:var(--radius-md);
+      padding:12px 12px;
+      outline:none;
+      transition:var(--trans);
+    }
+    input[type="text"]:focus, textarea:focus, select:focus{border-color:var(--brand-1);box-shadow:0 0 0 3px rgba(124,140,255,.18)}
+
+    .tone-wrap{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{
+      user-select:none;cursor:pointer;border:1px solid rgba(124,140,255,.25);
+      padding:8px 12px;border-radius:999px;background:rgba(18,24,38,.7);
+      transition:var(--trans);font-weight:600;font-size:13px
+    }
+    .chip[data-active="true"]{background:linear-gradient(180deg, rgba(124,140,255,.35), rgba(124,140,255,.12));border-color:rgba(124,140,255,.6)}
+    .chip:hover{transform:translateY(-1px)}
+
+    .btn{appearance:none;border:0;cursor:pointer;padding:12px 14px;border-radius:12px;font-weight:700;letter-spacing:.2px;transition:var(--trans)}
+    .btn-primary{color:#0b0f14;background:linear-gradient(180deg, #aeb7ff, #7c8cff)}
+    .btn-primary:hover{filter:brightness(1.05);transform:translateY(-1px)}
+    .btn-ghost{color:var(--ink);background:rgba(124,140,255,.12);border:1px solid rgba(124,140,255,.25)}
+    .btn-danger{color:#0b0f14;background:linear-gradient(180deg, #ff9b9b, #ff6b6b)}
+    .btn-ok{color:#0b0f14;background:linear-gradient(180deg, #8eedc7, #56d3a6)}
+
+    .inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .switch{display:inline-flex;align-items:center;gap:8px}
+    .switch input{width:40px;height:22px}
+
+    .grid{display:grid;grid-template-columns:repeat(3, 1fr);gap:var(--gap)}
+    @media (max-width:1000px){.grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:640px){.grid{grid-template-columns:1fr}}
+
+    .card{background:linear-gradient(180deg, rgba(18,24,38,.8), rgba(18,24,38,.6));border:1px solid rgba(124,140,255,.18);border-radius:var(--radius-lg);padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow);animation:pop .2s ease}
+    @keyframes pop{from{transform:scale(.98);opacity:0}to{transform:scale(1);opacity:1}}
+    .captext{white-space:pre-wrap;font-size:16px}
+    .meta{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px}
+    .meter{height:8px;border-radius:8px;background:rgba(124,140,255,.16);overflow:hidden}
+    .meter > span{display:block;height:100%;background:linear-gradient(90deg, var(--brand-2), var(--brand-1));transition:width .3s}
+
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .tag{font-size:11px;color:#0b0f14;background:var(--accent);padding:4px 8px;border-radius:999px;font-weight:700}
+
+    .pill{padding:6px 10px;border-radius:999px;background:rgba(142,237,199,.18);border:1px solid rgba(142,237,199,.35);color:#c2ffe8;font-size:12px}
+
+    .section-title{font-weight:800;margin:4px 0 10px 0}
+
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap)}
+    @media (max-width:960px){.split{grid-template-columns:1fr}}
+
+    .list{display:flex;flex-direction:column;gap:10px;max-height:280px;overflow:auto}
+
+    .footer{margin:24px 0 10px;color:var(--muted);font-size:12px;text-align:center}
+
+    .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);padding:10px 14px;border-radius:999px;background:#111723;border:1px solid rgba(124,140,255,.25);box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .3s, transform .3s}
+    .toast[data-show="true"]{opacity:1;transform:translateX(-50%) translateY(-4px)}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <div class="title">Caption Generator</div>
+          <div class="subtitle">トーンを選んで、短いコピーをサッと生成。A/Bお気に入り＆学習つき。</div>
+        </div>
+      </div>
+      <div class="inline">
+        <button class="btn btn-ghost" id="exportJSON" title="お気に入りをJSONでエクスポート">JSON書き出し</button>
+        <button class="btn btn-ghost" id="exportCSV" title="お気に入りをCSVでエクスポート">CSV書き出し</button>
+        <button class="btn btn-danger" id="resetAll" title="全データを初期化">リセット</button>
+      </div>
+    </header>
+
+    <!-- Controls -->
+    <section class="panel">
+      <div class="controls">
+        <div>
+          <label for="topic">テーマ / キーワード（例：朝のコーヒー、秋の散歩）</label>
+          <input id="topic" type="text" placeholder="何についてのキャプション？">
+        </div>
+        <div>
+          <label>トーン</label>
+          <div class="tone-wrap" id="toneWrap" role="tablist" aria-label="トーン選択">
+            <div class="chip" data-tone="gentle" role="tab" aria-selected="true" data-active="true">やさしめ</div>
+            <div class="chip" data-tone="surreal" role="tab">シュール</div>
+            <div class="chip" data-tone="emo" role="tab">エモ</div>
+            <div class="chip" data-tone="minimal" role="tab">ミニマル</div>
+          </div>
+        </div>
+        <div>
+          <label for="count">生成数 <span id="countVal" class="pill">8</span></label>
+          <input id="count" type="range" min="3" max="16" value="8" step="1">
+        </div>
+        <div class="inline" style="justify-content:flex-end;gap:12px">
+          <label class="switch"><input type="checkbox" id="optEmoji" checked> 絵文字を少し</label>
+          <label class="switch"><input type="checkbox" id="optHashtag"> #ハッシュタグ</label>
+          <button id="generate" class="btn btn-primary">生成する</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Custom Dictionary / Learning -->
+    <section class="panel">
+      <div class="split">
+        <div>
+          <div class="section-title">自作フレーズ辞書（学習）</div>
+          <p class="subtitle">選択中のトーンに追加。生成時に混ざります。</p>
+          <div class="inline">
+            <input id="customPhrase" type="text" placeholder="例：そっと深呼吸"></input>
+            <select id="dictBucket">
+              <option value="prefix">前置き/リード</option>
+              <option value="nouns">名詞/モチーフ</option>
+              <option value="verbs">動き/状態</option>
+              <option value="suffix">締めのひとこと</option>
+            </select>
+            <button id="addPhrase" class="btn btn-ok">追加</button>
+          </div>
+          <div id="dictPreview" class="list" style="margin-top:10px"></div>
+        </div>
+        <div>
+          <div class="section-title">A/B お気に入り</div>
+          <p class="subtitle">気に入った案を A と B に分けて保存 → 後で見比べ。</p>
+          <div class="inline" style="gap:12px">
+            <span class="pill">A: <b id="cntA">0</b></span>
+            <span class="pill">B: <b id="cntB">0</b></span>
+            <button class="btn btn-ghost" id="openFavA">Aを見る</button>
+            <button class="btn btn-ghost" id="openFavB">Bを見る</button>
+            <button class="btn btn-danger" id="clearFav">A/Bを空にする</button>
+          </div>
+          <div id="favList" class="list" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Output -->
+    <section class="panel">
+      <div class="section-title">生成結果</div>
+      <div id="output" class="grid" aria-live="polite"></div>
+    </section>
+
+    <div class="footer">単一HTMLファイル / ローカル保存のみ（ネット接続不要）</div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">コピーしました</div>
+
+  <script>
+    /* =====================
+       Data & Dictionaries
+    ====================== */
+    const TONES = {
+      gentle: {
+        label: 'やさしめ',
+        prefix: [ 'そっと', 'ゆっくり', 'ふわっと', '小さな', 'やわらぐ', 'ひだまりの', '深呼吸の' ],
+        nouns:  [ '朝', 'コーヒー', '窓辺', '余白', '木漏れ日', '散歩道', '手紙', 'まどろみ' ],
+        verbs:  [ 'ととのえる', 'ほどける', '寄りそう', 'やすむ', '染みこむ', 'ひろがる' ],
+        suffix: [ '今日も大丈夫', 'ここからいこう', '無理しないで', 'そのままで', '少しだけ軽く' ],
+        emojis:  ['☕','🌿','🍞','🌤️','🫶','🌼']
+      },
+      surreal: {
+        label: 'シュール',
+        prefix: [ 'たぶん', 'それは突然', '気づけば', 'ぜんぶ', 'つまり', '逆に', 'わりと' ],
+        nouns:  [ '宇宙パン', '透明な傘', '猫のWi‑Fi', '無重力のきゅうり', '静かな爆発', '月曜日の砂漠' ],
+        verbs:  [ '成立した', '蒸発した', '同期した', '召喚した', '忘れたふりをした' ],
+        suffix: [ '意味はあとで', 'たぶん正解', 'わかる人だけ', 'ここだけ無重力', 'ツッコミは任せた' ],
+        emojis:  ['🛸','🥒','🐱','🛰️','🌀','🤖']
+      },
+      emo: {
+        label: 'エモ',
+        prefix: [ 'きみの', 'きのうの', '静かな', '青い', 'あの夏の', '心はまだ', '終電の' ],
+        nouns:  [ '体温', '余白', '秒針', 'フィルム', 'まなざし', '境界線', '風の音' ],
+        verbs:  [ 'ほどけた', '灯した', 'にじんだ', '連れていく', '許された', '溶けていく' ],
+        suffix: [ '忘れないで', 'もう少しだけ', 'さよならじゃない', 'ここにいる', '呼吸のリズムで' ],
+        emojis:  ['🌙','🎞️','💫','🖤','🌌','🌧️']
+      },
+      minimal: {
+        label: 'ミニマル',
+        prefix: [ '', '', '' ],
+        nouns:  [ '静寂', '光', '余白', '今日', 'ここ', 'はじまり' ],
+        verbs:  [ 'だけ', 'でいい', 'を置く', '、続く', 'そっと' ],
+        suffix: [ '', '', '。' ],
+        emojis:  ['']
+      }
+    };
+
+    // load custom dictionary from localStorage
+    const loadCustom = () => JSON.parse(localStorage.getItem('cg_customDict')||'{}');
+    const saveCustom = (obj) => localStorage.setItem('cg_customDict', JSON.stringify(obj));
+
+    // favorites
+    const loadFav = (key) => JSON.parse(localStorage.getItem(key)||'[]');
+    const saveFav = (key, arr) => localStorage.setItem(key, JSON.stringify(arr));
+
+    // helpers
+    const rand = (arr)=> arr[Math.floor(Math.random()*arr.length)];
+    const clamp = (x, a, b)=> Math.max(a, Math.min(b, x));
+    const hasEmoji = (s)=> /[\p{Emoji}]/u.test(s);
+
+    function kanjiRatio(str){
+      let kanji = 0; let total = 0;
+      for(const ch of str){
+        const code = ch.codePointAt(0);
+        if(!code) continue;
+        if((code>=0x4E00 && code<=0x9FAF) || (code>=0x3400 && code<=0x4DBF)){kanji++;}
+        if(!/\s/.test(ch)) total++;
+      }
+      return total? kanji/total : 0;
+    }
+
+    function readabilityScore(str){
+      const len = [...str].length; // correct for surrogate pairs
+      const k = kanjiRatio(str);
+      const punct = (str.match(/[、。,.…・!！?？]/g)||[]).length / Math.max(1,len);
+      const spaceBonus = (str.includes(' ')||str.includes('\n')) ? 8 : 0;
+      const emojiBonus = hasEmoji(str)? 4 : 0;
+      let score = 100
+        - clamp(len-12,0,40)*1.2
+        - k*25
+        - punct*15
+        + spaceBonus + emojiBonus;
+      return clamp(Math.round(score), 0, 100);
+    }
+
+    function buildPool(tone){
+      const base = JSON.parse(JSON.stringify(TONES[tone]));
+      const custom = loadCustom()[tone] || {};
+      ['prefix','nouns','verbs','suffix','emojis'].forEach(k=>{
+        base[k] = [...new Set([...(base[k]||[]), ...((custom[k]||[]))])];
+      });
+      return base;
+    }
+
+    function genOne(topic, tone, opts){
+      const pool = buildPool(tone);
+      const p = rand(pool.prefix)||'';
+      const n = topic || rand(pool.nouns)||'';
+      const v = rand(pool.verbs)||'';
+      const s = rand(pool.suffix)||'';
+      const em = (opts.emoji && rand(pool.emojis)) ? ' ' + rand(pool.emojis) : '';
+
+      let out = '';
+      if(tone==='minimal'){
+        const forms = [
+          `${n} ${v}`.trim(),
+          `${n}、${v}`.trim(),
+          `${n}${pool.suffix.includes('。')?'':'。'}`.trim(),
+          `${n}`
+        ];
+        out = rand(forms);
+      } else if(tone==='surreal'){
+        const forms = [
+          `${p} ${n}、${v}`,
+          `${n}が${v}`,
+          `${p} ${n}。${s}`
+        ];
+        out = rand(forms);
+      } else if(tone==='emo'){
+        const forms = [
+          `${p}${n}が${v}`,
+          `${n}に触れて、${s}`,
+          `${p}${n}、${s}`
+        ];
+        out = rand(forms);
+      } else { // gentle
+        const forms = [
+          `${p} ${n}を${v}`,
+          `${n}と${v}`,
+          `${p} ${s}`
+        ];
+        out = rand(forms);
+      }
+
+      if(opts.hashtag){
+        const tag = (topic||n).toString().replace(/\s+/g,'').replace(/[、。,.!！?？]/g,'');
+        out += `\n#${tag}`;
+      }
+      out = out.replace(/\s+/g, m=> m.length>1? ' ' : m); // normalize spaces
+      out = out.trim() + em;
+      return out;
+    }
+
+    function generateCaptions(topic, tone, count, opts){
+      const set = new Set();
+      const res=[];
+      let guard=0;
+      while(res.length<count && guard<200){
+        const t = genOne(topic, tone, opts);
+        if(!set.has(t)){
+          set.add(t);
+          res.push(t);
+        }
+        guard++;
+      }
+      return res;
+    }
+
+    /* =====================
+       DOM Wiring
+    ====================== */
+    const els = {
+      topic: document.getElementById('topic'),
+      toneWrap: document.getElementById('toneWrap'),
+      count: document.getElementById('count'),
+      countVal: document.getElementById('countVal'),
+      optEmoji: document.getElementById('optEmoji'),
+      optHashtag: document.getElementById('optHashtag'),
+      generate: document.getElementById('generate'),
+      output: document.getElementById('output'),
+      customPhrase: document.getElementById('customPhrase'),
+      dictBucket: document.getElementById('dictBucket'),
+      addPhrase: document.getElementById('addPhrase'),
+      dictPreview: document.getElementById('dictPreview'),
+      openFavA: document.getElementById('openFavA'),
+      openFavB: document.getElementById('openFavB'),
+      clearFav: document.getElementById('clearFav'),
+      favList: document.getElementById('favList'),
+      cntA: document.getElementById('cntA'),
+      cntB: document.getElementById('cntB'),
+      exportJSON: document.getElementById('exportJSON'),
+      exportCSV: document.getElementById('exportCSV'),
+      resetAll: document.getElementById('resetAll'),
+      toast: document.getElementById('toast')
+    };
+
+    let state = {
+      tone: 'gentle',
+      settingsKey: 'cg_settings'
+    };
+
+    function saveSettings(){
+      localStorage.setItem(state.settingsKey, JSON.stringify({
+        tone: state.tone,
+        count: els.count.value,
+        emoji: els.optEmoji.checked,
+        hashtag: els.optHashtag.checked,
+        topic: els.topic.value
+      }));
+    }
+    function loadSettings(){
+      const s = JSON.parse(localStorage.getItem(state.settingsKey)||'null');
+      if(!s) return;
+      state.tone = s.tone || 'gentle';
+      els.count.value = s.count || 8; els.countVal.textContent = els.count.value;
+      els.optEmoji.checked = !!s.emoji;
+      els.optHashtag.checked = !!s.hashtag;
+      els.topic.value = s.topic || '';
+      // toggle chip UI
+      [...els.toneWrap.children].forEach(ch=>{
+        ch.dataset.active = (ch.dataset.tone===state.tone);
+        ch.setAttribute('aria-selected', ch.dataset.active);
+      });
+    }
+
+    // Tone chips
+    els.toneWrap.addEventListener('click', e=>{
+      const chip = e.target.closest('.chip');
+      if(!chip) return;
+      [...els.toneWrap.children].forEach(c=>{c.dataset.active='false'; c.setAttribute('aria-selected','false');});
+      chip.dataset.active='true'; chip.setAttribute('aria-selected','true');
+      state.tone = chip.dataset.tone;
+      refreshDictPreview();
+      saveSettings();
+    });
+
+    els.count.addEventListener('input', ()=>{els.countVal.textContent = els.count.value; saveSettings();});
+    els.optEmoji.addEventListener('change', saveSettings);
+    els.optHashtag.addEventListener('change', saveSettings);
+    els.topic.addEventListener('input', saveSettings);
+
+    // Generate
+    els.generate.addEventListener('click', ()=>{
+      const topic = els.topic.value.trim();
+      const count = Number(els.count.value);
+      const opts = { emoji: els.optEmoji.checked, hashtag: els.optHashtag.checked };
+      const list = generateCaptions(topic, state.tone, count, opts);
+      renderOutput(list);
+      saveSettings();
+    });
+
+    function renderOutput(list){
+      els.output.innerHTML = '';
+      list.forEach(text=>{
+        const card = document.createElement('div');
+        card.className = 'card';
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        const len = [...text].length;
+        const score = readabilityScore(text);
+        meta.innerHTML = `<span class="tag">${TONES[state.tone].label}</span><span>${len}文字・読みやすさ ${score}</span>`;
+
+        const cap = document.createElement('div');
+        cap.className = 'captext';
+        cap.textContent = text;
+
+        const meter = document.createElement('div');
+        meter.className='meter';
+        meter.innerHTML = `<span style="width:${score}%"></span>`;
+
+        const actions = document.createElement('div');
+        actions.className='actions';
+        actions.innerHTML = `
+          <button class="btn btn-ghost" data-act="copy">コピー</button>
+          <button class="btn btn-ok" data-act="saveA">Aに保存</button>
+          <button class="btn btn-ghost" data-act="saveB">Bに保存</button>
+        `;
+
+        actions.addEventListener('click', (e)=>{
+          const b = e.target.closest('button');
+          if(!b) return;
+          if(b.dataset.act==='copy'){
+            navigator.clipboard.writeText(text); toast('コピーしました');
+          } else if(b.dataset.act==='saveA'){
+            addFav('cg_favA', text);
+          } else if(b.dataset.act==='saveB'){
+            addFav('cg_favB', text);
+          }
+        });
+
+        card.append(meta, cap, meter, actions);
+        els.output.append(card);
+      });
+    }
+
+    /* Favorites */
+    function syncFavCount(){
+      els.cntA.textContent = loadFav('cg_favA').length;
+      els.cntB.textContent = loadFav('cg_favB').length;
+    }
+    function addFav(key, text){
+      const entry = { text, tone: state.tone, time: Date.now(), score: readabilityScore(text), len: [...text].length };
+      const arr = loadFav(key);
+      if(!arr.find(x=>x.text===text)){
+        arr.unshift(entry);
+        saveFav(key, arr);
+        syncFavCount();
+        toast((key==='cg_favA'?'A':'B')+'に保存');
+      } else {
+        toast('すでに保存されています');
+      }
+    }
+
+    function renderFav(which){
+      const key = which==='A'?'cg_favA':'cg_favB';
+      const arr = loadFav(key);
+      els.favList.innerHTML = '';
+      if(arr.length===0){ els.favList.innerHTML = '<div class="subtitle">まだありません</div>'; return; }
+      arr.forEach((it, idx)=>{
+        const row = document.createElement('div');
+        row.className='card';
+        row.innerHTML = `
+          <div class="meta"><span class="tag">${TONES[it.tone].label}</span><span>${it.len}文字・読みやすさ ${it.score}</span></div>
+          <div class="captext">${it.text.replace(/</g,'&lt;')}</div>
+          <div class="actions">
+            <button class="btn btn-ghost" data-act="copy">コピー</button>
+            <button class="btn btn-danger" data-act="remove">削除</button>
+          </div>
+        `;
+        row.querySelector('.actions').addEventListener('click', e=>{
+          const b = e.target.closest('button'); if(!b) return;
+          if(b.dataset.act==='copy') navigator.clipboard.writeText(it.text).then(()=>toast('コピーしました'));
+          if(b.dataset.act==='remove'){
+            const a = loadFav(key); a.splice(idx,1); saveFav(key,a); renderFav(which); syncFavCount();
+          }
+        });
+        els.favList.append(row);
+      });
+    }
+
+    els.openFavA.addEventListener('click', ()=> renderFav('A'));
+    els.openFavB.addEventListener('click', ()=> renderFav('B'));
+    els.clearFav.addEventListener('click', ()=>{
+      if(confirm('A/Bのお気に入りをすべて削除しますか？')){
+        saveFav('cg_favA', []); saveFav('cg_favB', []); els.favList.innerHTML=''; syncFavCount();
+      }
+    });
+
+    /* Custom Dictionary UI */
+    function refreshDictPreview(){
+      const c = loadCustom()[state.tone] || {};
+      const block = (name, arr) => `
+        <div class="card"><div class="meta"><b>${name}</b><span>${(arr||[]).length}語</span></div>
+        <div class="subtitle">${(arr||[]).map(x=>`<span class="pill" style="margin:4px 6px 0 0;display:inline-block">${x.replace(/</g,'&lt;')}</span>`).join('') || '—'}</div></div>`;
+      els.dictPreview.innerHTML = block('前置き/リード', c.prefix) + block('名詞/モチーフ', c.nouns) + block('動き/状態', c.verbs) + block('締めのひとこと', c.suffix);
+    }
+
+    els.addPhrase.addEventListener('click', ()=>{
+      const phrase = els.customPhrase.value.trim();
+      if(!phrase) return toast('フレーズを入力してね');
+      const bucket = els.dictBucket.value;
+      const all = loadCustom();
+      all[state.tone] = all[state.tone] || { prefix:[], nouns:[], verbs:[], suffix:[], emojis:[] };
+      const arr = all[state.tone][bucket];
+      if(!arr.includes(phrase)) arr.unshift(phrase);
+      saveCustom(all);
+      els.customPhrase.value='';
+      refreshDictPreview();
+      toast('追加しました');
+    });
+
+    /* Export */
+    function download(name, text){
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], {type:'text/plain;charset=utf-8'}));
+      a.download=name; a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+    }
+
+    els.exportJSON.addEventListener('click', ()=>{
+      const data = {
+        A: loadFav('cg_favA'),
+        B: loadFav('cg_favB'),
+        customDict: loadCustom()
+      };
+      download('caption-generator-data.json', JSON.stringify(data, null, 2));
+    });
+
+    els.exportCSV.addEventListener('click', ()=>{
+      const flat = (k)=> loadFav(k).map(x=>({bucket:k==='cg_favA'?'A':'B', tone:TONES[x.tone].label, len:x.len, score:x.score, text:x.text.replace(/"/g,'""')}));
+      const all = [...flat('cg_favA'), ...flat('cg_favB')];
+      const rows = [['bucket','tone','len','score','text'], ...all.map(o=>[o.bucket,o.tone,o.len,o.score,`"${o.text}"`])].map(r=>r.join(','));
+      download('caption-generator-favorites.csv', rows.join('\n'));
+    });
+
+    /* Reset */
+    els.resetAll.addEventListener('click', ()=>{
+      if(confirm('アプリの保存データ（お気に入り/設定/辞書）をすべて初期化しますか？')){
+        localStorage.removeItem('cg_favA');
+        localStorage.removeItem('cg_favB');
+        localStorage.removeItem('cg_customDict');
+        localStorage.removeItem('cg_settings');
+        els.favList.innerHTML='';
+        syncFavCount();
+        refreshDictPreview();
+        toast('初期化しました');
+      }
+    });
+
+    /* Toast */
+    function toast(msg){
+      els.toast.textContent = msg; els.toast.dataset.show='true';
+      clearTimeout(els.toast._t);
+      els.toast._t = setTimeout(()=>{els.toast.dataset.show='false';}, 1300);
+    }
+
+    // Boot
+    loadSettings();
+    refreshDictPreview();
+    syncFavCount();
+  </script>
+</body>
+</html>
